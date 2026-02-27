@@ -1,5 +1,7 @@
 """Typed, validated settings from .env files."""
 
+from functools import lru_cache
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -40,6 +42,7 @@ class Settings(BaseSettings):
     database_path: str = "data/trading.db"
 
 
+@lru_cache
 def get_settings() -> Settings:
-    """Return application settings (singleton-style; create per use)."""
+    """Return application settings (cached)."""
     return Settings()

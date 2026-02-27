@@ -18,6 +18,15 @@ This project is a **lean trading agent for Hyperliquid DEX**. The single source 
 - Default `DRY_RUN=true`; real orders only when explicitly disabled.
 - Symbols: normalize to `BTC/USDC:USDC` (append `:USDC` if missing).
 
+## CCXT / Hyperliquid gotchas
+
+- **`fetch_ohlcv`**: Always pass `since` (ms). Compute as `(now_ts_sec - limit * timeframe_seconds) * 1000`. Without it, CCXT uses `startTime=0` and the request is very slow (~3s).
+- **Price precision**: Use `exchange.price_to_precision(symbol, price)` before every order or orders are rejected (tick size).
+- **Symbol format**: Perps must be `BASE/USDC:USDC`. Normalize in the exchange client (e.g. `BTC` → `BTC/USDC:USDC`).
+- **Positions**: CCXT returns `side` as string `"long"` / `"short"`, not a number. Do not call `float(p["side"])`.
+- **Nonce**: One API wallet per bot instance; multiple processes sharing one wallet cause nonce conflicts.
+- **Minimum collateral**: Hyperliquid has a ~$10 minimum; validate balance before first trade and surface a clear error.
+
 ## Quick reference
 
 - Run server: `uv run hl-op serve`

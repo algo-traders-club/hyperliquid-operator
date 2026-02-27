@@ -1,7 +1,6 @@
 """Thin CCXT wrapper for Hyperliquid — auth, retries, precision, symbol normalization."""
 
 import time
-from pathlib import Path
 from typing import Any, List, Optional
 
 import ccxt
@@ -10,18 +9,16 @@ from app.config import get_settings
 
 
 def normalize_symbol(symbol: str) -> str:
-    """Ensure perp symbol has quote :USDC (e.g. BTC/USDC -> BTC/USDC:USDC)."""
+    """Normalize to Hyperliquid perp format: BASE/USDC:USDC."""
     s = symbol.strip().upper()
-    if not s.endswith(":USDC"):
-        if "/" in s and "USDC" in s:
-            s = f"{s}:USDC"
-        else:
-            s = f"{s}:USDC" if "/" not in s else s
-    return s
+    if s.endswith(":USDC"):
+        return s
+    base = s.split("/")[0].split(":")[0]
+    return f"{base}/USDC:USDC"
 
 
 class HyperliquidClient:
-    """Thin wrapper around CCXT's Hyperliquid implementation."""
+    """Thin wrapper around CCXT's Hyperliquid implementation. Exceptions propagate."""
 
     def __init__(
         self,
@@ -41,38 +38,41 @@ class HyperliquidClient:
         )
 
     def get_balance(self) -> float:
-        """Fetch USDC/equity balance. Returns 0.0 on error or if not available."""
-        try:
-            balance = self.exchange.fetch_balance()
-            # Hyperliquid perps: typically look for USDC or total equity
-            if "USDC" in balance.get("total", {}):
-                return float(balance["total"]["USDC"] or 0)
-            if "total" in balance and balance["total"]:
-                first = next(iter(balance["total"].values()), None)
-                return float(first or 0)
-            return 0.0
-        except Exception:
-            return 0.0
+        """Fetch total USDC balance (convenience). Exceptions propagate."""
+        b = self.get_balance_breakdown()
+        return b.get("total", 0.0)
+
+    def get_balance_breakdown(self) -> dict:
+        """Fetch balance with total, free, used. Exceptions propagate."""
+        balance = self.exchange.fetch_balance()
+        total = float(balance.get("total", {}).get("USDC", 0) or 0)
+        free = float(balance.get("free", {}).get("USDC", 0) or 0)
+        used = float(balance.get("used", {}).get("USDC", 0) or 0)
+        return {"total": total, "free": free, "used": used}
 
     def get_positions(self, symbol: Optional[str] = None) -> List[dict]:
-        """Fetch open positions. Symbol optional filter. Normalize symbols to :USDC."""
-        try:
-            positions = self.exchange.fetch_positions(symbols=[symbol] if symbol else None)
-            out = []
-            for p in positions:
-                if p.get("contracts") and float(p.get("contracts", 0) or 0) != 0:
-                    sym = p.get("symbol") or ""
-                    out.append({
-                        "symbol": normalize_symbol(sym),
-                        "side": "long" if float(p.get("side", 0) or 0) > 0 else "short",
-                        "size": abs(float(p.get("contracts", 0) or 0)),
-                        "entry_price": float(p.get("entryPrice") or 0),
-                        "unrealized_pnl": float(p.get("unrealizedPnl") or 0),
-                        "leverage": float(p.get("leverage") or 1),
-                    })
-            return out
-        except Exception:
-            return []
+        """Fetch open positions. CCXT returns side as 'long'/'short' string. Exceptions propagate."""
+        positions = self.exchange.fetch_positions(symbols=[symbol] if symbol else None)
+        out = []
+        for p in positions:
+            contracts = float(p.get("contracts", 0) or 0)
+            if contracts == 0:
+                continue
+            sym = p.get("symbol") or ""
+            side = p.get("side", "long")
+            if isinstance(side, str):
+                side = side.lower()
+            else:
+                side = "long" if side and float(side) > 0 else "short"
+            out.append({
+                "symbol": normalize_symbol(sym),
+                "side": side,
+                "size": abs(contracts),
+                "entry_price": float(p.get("entryPrice") or 0),
+                "unrealized_pnl": float(p.get("unrealizedPnl") or 0),
+                "leverage": float(p.get("leverage") or 1),
+            })
+        return out
 
     def fetch_ohlcv(
         self,
@@ -83,27 +83,24 @@ class HyperliquidClient:
     ) -> List[dict]:
         """
         Fetch OHLCV candles. Always pass since to avoid slow default (startTime=0).
+        parse_timeframe returns seconds; convert to ms only for the final since.
         """
         sym = normalize_symbol(symbol)
-        # PRD: since = required_candles * timeframe_ms to avoid ~3s delay
         if since is None and limit > 0:
-            tf_ms = self.exchange.parse_timeframe(timeframe) * 1000
-            since = int((time.time() - limit * tf_ms) * 1000)
-        try:
-            raw = self.exchange.fetch_ohlcv(sym, timeframe=timeframe, limit=limit, since=since)
-            return [
-                {
-                    "timestamp": o[0],
-                    "open": o[1],
-                    "high": o[2],
-                    "low": o[3],
-                    "close": o[4],
-                    "volume": o[5] if len(o) > 5 else 0,
-                }
-                for o in raw
-            ]
-        except Exception:
-            return []
+            tf_seconds = self.exchange.parse_timeframe(timeframe)
+            since = int((time.time() - limit * tf_seconds) * 1000)
+        raw = self.exchange.fetch_ohlcv(sym, timeframe=timeframe, limit=limit, since=since)
+        return [
+            {
+                "timestamp": o[0],
+                "open": o[1],
+                "high": o[2],
+                "low": o[3],
+                "close": o[4],
+                "volume": o[5] if len(o) > 5 else 0,
+            }
+            for o in raw
+        ]
 
     def create_order(
         self,
@@ -113,23 +110,19 @@ class HyperliquidClient:
         order_type: str = "limit",
         price: Optional[float] = None,
         dry_run: bool = True,
-    ) -> Optional[dict]:
+    ) -> dict:
         """
-        Place order. Uses price_to_precision for tick size. No native market orders;
-        use limit with slippage if simulating market.
+        Place order. Uses price_to_precision for tick size. Exceptions propagate.
         """
         sym = normalize_symbol(symbol)
         if dry_run:
             return {"dry_run": True, "symbol": sym, "side": side, "amount": amount}
-        try:
-            if price is not None:
-                price = float(self.exchange.price_to_precision(sym, price))
-            return self.exchange.create_order(
-                symbol=sym,
-                type=order_type,
-                side=side,
-                amount=amount,
-                price=price,
-            )
-        except Exception:
-            return None
+        if price is not None:
+            price = float(self.exchange.price_to_precision(sym, price))
+        return self.exchange.create_order(
+            symbol=sym,
+            type=order_type,
+            side=side,
+            amount=amount,
+            price=price,
+        )

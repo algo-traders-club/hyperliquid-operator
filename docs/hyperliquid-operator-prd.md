@@ -1074,6 +1074,7 @@ uv run hl-op status --json
 | Version | Date | Changes |
 |---------|------|---------|
 | 0.1.0 | 2026-02-27 | Initial PRD. Core architecture, CLI design, strategy system, risk management. |
+| 0.1.1 | 2026-02-27 | Code review: exchange exceptions propagate; fetch_ohlcv since fix; positions side string; normalize_symbol; risk_per_trade check removed; close dry-run JSON; get_settings cached; shared execution + API/CLI parity; bot URL from config; close-all DB log; datetime.now(UTC); structured emit_error; balance total/free/used; root main.py removed; --quiet on status/history; CLAUDE gotchas; README UV install; .gitignore. |
 
 ---
 

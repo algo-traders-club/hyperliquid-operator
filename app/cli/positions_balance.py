@@ -43,13 +43,14 @@ def balance_cmd(
     json_output: bool = typer.Option(False, "--json"),
     quiet: bool = typer.Option(False, "--quiet", "-q"),
 ) -> None:
-    """Account balance and equity."""
-    bal = _exchange().get_balance()
+    """Account balance (total, free, used)."""
+    b = _exchange().get_balance_breakdown()
     if quiet:
-        typer.echo(bal)
+        typer.echo(b.get("total", 0))
         return
     if is_json_mode(json_output):
-        emit_json({"balance": bal, "equity": bal})
+        emit_json(b)
     else:
-        typer.echo(f"Balance: {bal}")
-        typer.echo(f"Equity: {bal}")
+        typer.echo(f"Total: {b.get('total', 0)}")
+        typer.echo(f"Free:  {b.get('free', 0)}")
+        typer.echo(f"Used:  {b.get('used', 0)}")

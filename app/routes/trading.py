@@ -29,12 +29,11 @@ async def positions(request: Request) -> list:
 
 @router.get("/balance")
 async def balance(request: Request) -> dict:
-    """Account balance and equity."""
+    """Account balance and equity (total, free, used)."""
     exchange = getattr(request.app.state, "exchange", None)
     if not exchange:
-        return {"balance": 0.0, "equity": 0.0}
-    bal = exchange.get_balance()
-    return {"balance": bal, "equity": bal}
+        return {"total": 0.0, "free": 0.0, "used": 0.0}
+    return exchange.get_balance_breakdown()
 
 
 @router.get("/trades")
@@ -50,18 +49,29 @@ async def trades(
 
 @router.post("/trade")
 async def trade(request: Request, body: TradeBody) -> dict:
-    """Manual trade. Body: symbol, side, size. Respects DRY_RUN and risk checks."""
-    bot = getattr(request.app.state, "bot", None)
-    if not bot:
-        return {"success": False, "error": "Bot not initialized"}
-    # Minimal response; full execution will be in M5/M6
+    """Manual trade. Body: symbol, side, size. Same logic as CLI (shared execution)."""
+    from app.core.execution import execute_manual_trade
+    from app.config import get_settings
+    settings = get_settings()
+    if body.side not in ("buy", "sell"):
+        return {"success": False, "error": "side must be 'buy' or 'sell'"}
+    result = execute_manual_trade(
+        body.side,
+        body.symbol,
+        body.size,
+        dry_run_override=settings.dry_run,
+    )
     return {
-        "success": True,
-        "dry_run": bot.settings.dry_run,
-        "symbol": body.symbol,
-        "side": body.side,
-        "size": body.size,
-        "message": "Dry run — no order submitted" if bot.settings.dry_run else "Order submitted",
+        "success": result["approved"],
+        "approved": result["approved"],
+        "reason": result["reason"],
+        "executed": result["executed"],
+        "dry_run": result["dry_run"],
+        "symbol": result["symbol"],
+        "side": result["side"],
+        "size": result["size"],
+        "estimated_cost": result["estimated_cost"],
+        "risk_check": result["risk_check"],
     }
 
 

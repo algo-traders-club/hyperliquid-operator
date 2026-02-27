@@ -9,6 +9,8 @@ Lean, modular Python trading agent for **Hyperliquid DEX** — by Algo Traders C
 
 ## Quick start
 
+**Install UV** (if needed): `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
 ```bash
 git clone https://github.com/algo-traders-club/hyperliquid-operator.git
 cd hyperliquid-operator

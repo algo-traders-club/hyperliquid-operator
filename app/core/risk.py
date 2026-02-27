@@ -28,12 +28,13 @@ class RiskManager:
         if signal.type.value == "hold":
             return True, "approved"
 
+        # Position sizing enforced by _check_position_size (max_position_size_usd).
+        # risk_per_trade in PRD is "max equity risked" (e.g. stop-loss); not used for v0.1.
         checks = [
             self._check_position_size(signal, balance, estimated_notional),
             self._check_max_positions(positions),
             self._check_daily_loss_limit(balance, daily_pnl),
             self._check_max_drawdown(balance, equity_peak),
-            self._check_risk_per_trade(signal, balance, estimated_notional),
         ]
 
         for approved, reason in checks:
@@ -89,18 +90,3 @@ class RiskManager:
             )
         return True, "approved"
 
-    def _check_risk_per_trade(
-        self,
-        signal: Signal,
-        balance: float,
-        estimated_notional: Optional[float],
-    ) -> Tuple[bool, str]:
-        if balance <= 0 or estimated_notional is None:
-            return True, "approved"
-        risk_ratio = estimated_notional / balance
-        if risk_ratio > self.settings.risk_per_trade:
-            return False, (
-                f"Risk per trade ({risk_ratio:.0%}) exceeds "
-                f"limit ({self.settings.risk_per_trade:.0%})"
-            )
-        return True, "approved"

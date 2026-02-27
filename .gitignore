@@ -12,3 +12,7 @@ wheels/
 # Data and secrets
 data/
 .env
+
+# Tooling
+.mypy_cache/
+.ruff_cache/

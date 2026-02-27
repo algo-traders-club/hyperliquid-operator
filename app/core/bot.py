@@ -1,7 +1,7 @@
 """TradingBot — background loop, start/stop, status."""
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from app.config import Settings
@@ -45,15 +45,15 @@ class TradingBot:
     def uptime_seconds(self) -> Optional[float]:
         if self._started_at is None:
             return None
-        return (datetime.utcnow() - self._started_at).total_seconds()
+        return (datetime.now(timezone.utc) - self._started_at).total_seconds()
 
     async def start(self, interval: int = 60) -> None:
         """Start the background trading loop."""
         if self._running:
             return
         self._running = True
-        self._started_at = datetime.utcnow()
-        self._last_heartbeat = datetime.utcnow()
+        self._started_at = datetime.now(timezone.utc)
+        self._last_heartbeat = datetime.now(timezone.utc)
         self._last_error = None
         self._task = asyncio.create_task(self._loop(interval))
 
@@ -69,8 +69,7 @@ class TradingBot:
         symbol = self.settings.symbol
         try:
             required = self.strategy.required_candles
-            timeframe_ms = 60 * 1000
-            since = int(datetime.utcnow().timestamp() * 1000) - (required + 10) * timeframe_ms
+            since = int(datetime.now(timezone.utc).timestamp() * 1000) - (required + 10) * 60 * 1000
             candles = await asyncio.to_thread(
                 self.exchange.fetch_ohlcv,
                 symbol,
@@ -132,7 +131,7 @@ class TradingBot:
                         price=price,
                         dry_run=False,
                     )
-                    opened_at = datetime.utcnow().isoformat()
+                    opened_at = datetime.now(timezone.utc).isoformat()
                     await insert_trade(
                         symbol=signal.symbol,
                         side="buy" if signal.type == SignalType.BUY else "sell",
@@ -144,7 +143,7 @@ class TradingBot:
                         is_dry_run=False,
                     )
 
-            await set_bot_state("last_heartbeat", datetime.utcnow().isoformat())
+            await set_bot_state("last_heartbeat", datetime.now(timezone.utc).isoformat())
             await set_bot_state("active_strategy", self.strategy.name)
             await set_bot_state("is_running", "true")
             await set_bot_state("equity", str(balance))
@@ -164,7 +163,7 @@ class TradingBot:
                 break
             except Exception as e:
                 self._last_error = str(e)
-            self._last_heartbeat = datetime.utcnow()
+            self._last_heartbeat = datetime.now(timezone.utc)
             if self._running:
                 await asyncio.sleep(interval)
 

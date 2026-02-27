@@ -1,16 +1,20 @@
 """hl-op bot — start, stop, restart. Uses API when server is running."""
 
+import json as _json
+import urllib.request
+
 import typer
 
 from app.cli.output import emit_json, is_json_mode
+from app.config import get_settings
 
 bot_app = typer.Typer(help="Bot control")
 
 
 def _api(method: str, path: str, body: dict | None = None) -> dict | None:
-    import urllib.request
-    import json as _json
-    url = "http://127.0.0.1:8000" + path
+    s = get_settings()
+    host = s.host if s.host not in ("0.0.0.0", "") else "127.0.0.1"
+    url = f"http://{host}:{s.port}{path}"
     try:
         data = _json.dumps(body).encode() if body else None
         req = urllib.request.Request(url, data=data, method=method)

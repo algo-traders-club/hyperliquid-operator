@@ -25,9 +25,13 @@ async def _load_status() -> dict:
 
 def status_cmd(
     json_output: bool = typer.Option(False, "--json", help="Structured JSON output"),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Bare value only"),
 ) -> None:
     """Bot status (running, last tick, errors, uptime)."""
     data = asyncio.run(_load_status())
+    if quiet:
+        typer.echo("running" if data["is_running"] else "stopped")
+        return
     if is_json_mode(json_output):
         emit_json(data)
     else:

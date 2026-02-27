@@ -19,12 +19,17 @@ def trades_cmd(
     limit: int = typer.Option(100, "--limit", "-n"),
     symbol: str | None = typer.Option(None, "--symbol"),
     json_output: bool = typer.Option(False, "--json"),
+    quiet: bool = typer.Option(False, "--quiet", "-q"),
 ) -> None:
     """Past trades with P&L."""
     async def _run():
         await _ensure_db()
         return await get_trades(limit=limit, symbol=symbol)
     rows = asyncio.run(_run())
+    if quiet:
+        for r in rows:
+            typer.echo(r.get("id"))
+        return
     if is_json_mode(json_output):
         emit_json(rows)
     else:
@@ -49,12 +54,17 @@ def signals_cmd(
     limit: int = typer.Option(100, "--limit", "-n"),
     symbol: str | None = typer.Option(None, "--symbol"),
     json_output: bool = typer.Option(False, "--json"),
+    quiet: bool = typer.Option(False, "--quiet", "-q"),
 ) -> None:
     """Signal log."""
     async def _run():
         await _ensure_db()
         return await get_signals(limit=limit, symbol=symbol)
     rows = asyncio.run(_run())
+    if quiet:
+        for r in rows:
+            typer.echo(r.get("id"))
+        return
     if is_json_mode(json_output):
         emit_json(rows)
     else:
@@ -76,6 +86,7 @@ def signals_cmd(
 @history_app.command("pnl")
 def pnl_cmd(
     json_output: bool = typer.Option(False, "--json"),
+    quiet: bool = typer.Option(False, "--quiet", "-q"),
 ) -> None:
     """Profit/loss summary."""
     async def _run():
@@ -84,6 +95,9 @@ def pnl_cmd(
         total = sum((r.get("pnl") or 0) for r in rows)
         return {"total_pnl": total, "trades_count": len(rows)}
     data = asyncio.run(_run())
+    if quiet:
+        typer.echo(data["total_pnl"])
+        return
     if is_json_mode(json_output):
         emit_json(data)
     else:
