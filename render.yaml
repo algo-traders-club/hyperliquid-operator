@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: hyperliquid-operator
+    runtime: docker
+    plan: starter
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: WALLET_ADDRESS
+        sync: false
+      - key: PRIVATE_KEY
+        sync: false
+      - key: DRY_RUN
+        value: "true"
+      - key: DATABASE_PATH
+        value: /data/trading.db
+    disk:
+      name: trading-data
+      mountPath: /data
+      sizeGB: 1
