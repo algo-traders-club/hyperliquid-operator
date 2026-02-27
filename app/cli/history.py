@@ -5,7 +5,7 @@ import asyncio
 import typer
 
 from app.cli.output import emit_json, is_json_mode
-from app.database import get_signals, get_trades, init_db
+from app.database import get_pnl_summary, get_signals, get_trades, init_db
 
 history_app = typer.Typer(help="Trade history")
 
@@ -88,12 +88,10 @@ def pnl_cmd(
     json_output: bool = typer.Option(False, "--json"),
     quiet: bool = typer.Option(False, "--quiet", "-q"),
 ) -> None:
-    """Profit/loss summary."""
+    """Profit/loss summary (SUM/COUNT query)."""
     async def _run():
         await _ensure_db()
-        rows = await get_trades(limit=1000)
-        total = sum((r.get("pnl") or 0) for r in rows)
-        return {"total_pnl": total, "trades_count": len(rows)}
+        return await get_pnl_summary()
     data = asyncio.run(_run())
     if quiet:
         typer.echo(data["total_pnl"])

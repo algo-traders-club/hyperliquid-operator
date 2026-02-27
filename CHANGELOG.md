@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented here.
 
+## [0.1.2] - 2026-02-27
+
+### Code review v2
+
+**Critical**
+
+- **close-all --json**: Now executes closes in JSON mode (when not dry_run), logs to DB, and returns `closed` count and `positions_closed` list. Fixes bug where `close-all --yes --json` reported success but sent no orders.
+
+**Medium**
+
+- **buy/sell flow**: Separated actual dry-run (`--dry-run` or `DRY_RUN`) from “preview before confirm”. Always preview first with dry run; only then prompt and execute. Fixes case where user with `DRY_RUN=false` saw “DRY RUN” and never got confirmation.
+- **execute_manual_trade**: Optional `exchange` argument; API passes `app.state.exchange` to reuse client instead of creating one per request.
+- **init_db()**: Guard so existing connection is not overwritten without closing (avoids leak when CLI runs in same process as server).
+- **Strategy ABC**: `name`, `description`, `required_candles` are class attributes (no `@property`), matching SimpleStrategy; removed type ignore in registry.
+
+**Polish**
+
+- **close-all JSON**: Response includes `positions_closed` list (symbol, side, size) for each position.
+- **pnl**: Uses `get_pnl_summary()` with `SELECT SUM(pnl), COUNT(*)` instead of fetching up to 1000 rows.
+- **buy/sell CLI**: Extracted shared `_trade_cmd()`; buy and sell are thin wrappers.
+- **Tests**: Added `tests/test_risk.py` and `tests/test_strategy.py` (risk manager and strategy registry / SimpleStrategy).
+
+---
+
 ## [0.1.1] - 2026-02-27
 
 ### Code review fixes

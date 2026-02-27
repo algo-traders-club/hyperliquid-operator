@@ -12,7 +12,7 @@ _registry: dict[str, Type[BaseStrategy]] = {}
 
 def register(cls: Type[BaseStrategy]) -> Type[BaseStrategy]:
     """Register a strategy class by its name."""
-    _registry[cls.name] = cls  # type: ignore[attr-defined]
+    _registry[cls.name] = cls
     return cls
 
 

@@ -13,18 +13,21 @@ def execute_manual_trade(
     symbol: str,
     size: float,
     dry_run_override: bool | None = None,
+    exchange: HyperliquidClient | None = None,
 ) -> dict[str, Any]:
     """
     Execute a manual trade (buy or sell). Shared by CLI and API.
+    Pass exchange to reuse (e.g. app.state.exchange); otherwise creates a new client.
     Returns dict with: success, approved, reason, executed, dry_run, symbol, size, estimated_cost, etc.
     """
     settings = get_settings()
     dry_run = dry_run_override if dry_run_override is not None else settings.dry_run
     sym = normalize_symbol(symbol)
-    exchange = HyperliquidClient(
-        wallet_address=settings.wallet_address,
-        private_key=settings.private_key,
-    )
+    if exchange is None:
+        exchange = HyperliquidClient(
+            wallet_address=settings.wallet_address,
+            private_key=settings.private_key,
+        )
     balance = exchange.get_balance()
     positions = exchange.get_positions()
     ohlcv = exchange.fetch_ohlcv(sym, limit=1)

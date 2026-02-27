@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS bot_state (
 async def init_db() -> None:
     """Create DB file, apply PRAGMAs and schema. Idempotent."""
     global _conn
+    if _conn is not None:
+        return
     settings = get_settings()
     path = Path(settings.database_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -205,6 +207,18 @@ async def get_signals(
     cursor = await conn.execute(q, params)
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
+
+
+async def get_pnl_summary() -> dict:
+    """Return total P&L and trade count via SUM/COUNT query."""
+    conn = _get_conn()
+    cursor = await conn.execute(
+        "SELECT COALESCE(SUM(pnl), 0) AS total_pnl, COUNT(*) AS trades_count FROM trades"
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return {"total_pnl": 0.0, "trades_count": 0}
+    return {"total_pnl": float(row[0]), "trades_count": int(row[1])}
 
 
 async def get_bot_state(key: str) -> Optional[str]:

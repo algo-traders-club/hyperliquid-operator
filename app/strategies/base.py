@@ -26,22 +26,11 @@ class Signal:
 
 
 class BaseStrategy(ABC):
-    """All strategies must implement this interface."""
+    """All strategies must implement this interface. Set name, description, required_candles as class attributes."""
 
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Unique strategy identifier (e.g. 'simple_sma')."""
-
-    @property
-    @abstractmethod
-    def description(self) -> str:
-        """One-line description for --help and strategy list."""
-
-    @property
-    @abstractmethod
-    def required_candles(self) -> int:
-        """Minimum OHLCV candles needed before generating signals."""
+    name: str = ""
+    description: str = ""
+    required_candles: int = 0
 
     @abstractmethod
     def generate_signal(self, candles: List[Dict[str, Any]]) -> Signal:

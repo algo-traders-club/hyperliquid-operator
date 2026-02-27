@@ -55,11 +55,13 @@ async def trade(request: Request, body: TradeBody) -> dict:
     settings = get_settings()
     if body.side not in ("buy", "sell"):
         return {"success": False, "error": "side must be 'buy' or 'sell'"}
+    exchange = getattr(request.app.state, "exchange", None)
     result = execute_manual_trade(
         body.side,
         body.symbol,
         body.size,
         dry_run_override=settings.dry_run,
+        exchange=exchange,
     )
     return {
         "success": result["approved"],
