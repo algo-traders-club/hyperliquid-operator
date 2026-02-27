@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     symbol: str = "BTC/USDC:USDC"
     strategy: str = "simple_sma"
     loop_interval: int = 60
+    auto_start: bool = False
     leverage: int = 1
     dry_run: bool = True  # Safe default
 
